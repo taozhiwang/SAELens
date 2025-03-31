@@ -263,7 +263,7 @@ class TrainingSAE(SAE):
 
         self.use_error_term = use_error_term
 
-        self.initialize_weights_complex()
+        # self.initialize_weights_complex()
 
         # The training SAE will assume that the activation store handles
         # reshaping.
@@ -593,7 +593,7 @@ class TrainingSAE(SAE):
 
     def initialize_weights_complex(self):
         """ """
-
+        print("Run initialize_weights_complex \n")
         if self.cfg.decoder_orthogonal_init:
             self.W_dec.data = nn.init.orthogonal_(self.W_dec.data.T).T
 
