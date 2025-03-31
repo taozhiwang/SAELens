@@ -463,9 +463,9 @@ class ActivationsStore:
         additionally shuffle individual elements within the shard.
         """
         if isinstance(self.dataset, IterableDataset):
-            self.dataset = self.dataset.shuffle(seed=seed, buffer_size=buffer_size)
+            self.dataset = self.dataset.shuffle(seed=42, buffer_size=buffer_size)
         else:
-            self.dataset = self.dataset.shuffle(seed=seed)
+            self.dataset = self.dataset.shuffle(seed=42)
         self.iterable_dataset = iter(self.dataset)
 
     def reset_input_dataset(self):
@@ -770,7 +770,7 @@ class ActivationsStore:
                 # TODO: seems like a typing bug?
                 cast(Any, mixing_buffer[mixing_buffer.shape[0] // 2 :]),
                 batch_size=batch_size,
-                shuffle=True,
+                shuffle=False,
             )
         )
 
