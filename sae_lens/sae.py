@@ -69,6 +69,7 @@ class SAEConfig:
     neuronpedia_id: Optional[str] = None
     model_from_pretrained_kwargs: dict[str, Any] = field(default_factory=dict)
     seqpos_slice: tuple[int | None, ...] = (None,)
+    test_new_init: bool = False
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, Any]) -> "SAEConfig":
@@ -119,6 +120,7 @@ class SAEConfig:
             "neuronpedia_id": self.neuronpedia_id,
             "model_from_pretrained_kwargs": self.model_from_pretrained_kwargs,
             "seqpos_slice": self.seqpos_slice,
+            "test_new_init": self.test_new_init,
         }
 
 
@@ -242,7 +244,44 @@ class SAE(HookedRootModule):
         self.setup()  # Required for `HookedRootModule`s
 
     def initialize_weights_basic(self):
-        print("Run initialize_weights_basic \n")
+        if not self.cfg.test_new_init:
+            # no config changes encoder bias init for now.
+            self.b_enc = nn.Parameter(
+                torch.zeros(self.cfg.d_sae, dtype=self.dtype, device=self.device)
+            )
+
+            # Start with the default init strategy:
+            self.W_dec = nn.Parameter(
+                torch.nn.init.kaiming_uniform_(
+                    torch.empty(
+                        self.cfg.d_sae, self.cfg.d_in, dtype=self.dtype, device=self.device
+                    )
+                )
+            )
+
+            self.W_enc = nn.Parameter(
+                torch.nn.init.kaiming_uniform_(
+                    torch.empty(
+                        self.cfg.d_in, self.cfg.d_sae, dtype=self.dtype, device=self.device
+                    )
+                )
+            )
+
+            # methdods which change b_dec as a function of the dataset are implemented after init.
+            self.b_dec = nn.Parameter(
+                torch.zeros(self.cfg.d_in, dtype=self.dtype, device=self.device)
+            )
+
+            # scaling factor for fine-tuning (not to be used in initial training)
+            # TODO: Make this optional and not included with all SAEs by default (but maintain backwards compatibility)
+            if self.cfg.finetuning_scaling_factor:
+                self.finetuning_scaling_factor = nn.Parameter(
+                    torch.ones(self.cfg.d_sae, dtype=self.dtype, device=self.device)
+                )
+            
+            return
+
+        print("Run new initialize_weights_basic \n")
         # no config changes encoder bias init for now.
         self.b_enc = nn.Parameter(
             torch.zeros(self.cfg.d_sae, dtype=self.dtype, device=self.device)

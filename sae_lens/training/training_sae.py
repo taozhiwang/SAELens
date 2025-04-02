@@ -120,6 +120,7 @@ class TrainingSAEConfig(SAEConfig):
     decoder_heuristic_init: bool
     init_encoder_as_decoder_transpose: bool
     scale_sparsity_penalty_by_decoder_norm: bool
+    test_new_init: bool
 
     @classmethod
     def from_sae_runner_config(
@@ -161,6 +162,7 @@ class TrainingSAEConfig(SAEConfig):
             model_from_pretrained_kwargs=cfg.model_from_pretrained_kwargs or {},
             jumprelu_init_threshold=cfg.jumprelu_init_threshold,
             jumprelu_bandwidth=cfg.jumprelu_bandwidth,
+            test_new_init=cfg.test_new_init,
         )
 
     @classmethod
@@ -226,6 +228,7 @@ class TrainingSAEConfig(SAEConfig):
             "dataset_path": self.dataset_path,
             "dataset_trust_remote_code": self.dataset_trust_remote_code,
             "sae_lens_training_version": self.sae_lens_training_version,
+            "test_new_init": self.test_new_init,
         }
 
 
@@ -263,7 +266,8 @@ class TrainingSAE(SAE):
 
         self.use_error_term = use_error_term
 
-        # self.initialize_weights_complex()
+        if not self.cfg.test_new_init:
+            self.initialize_weights_complex()
 
         # The training SAE will assume that the activation store handles
         # reshaping.
