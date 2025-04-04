@@ -120,6 +120,7 @@ class TrainingSAEConfig(SAEConfig):
     decoder_heuristic_init: bool
     init_encoder_as_decoder_transpose: bool
     scale_sparsity_penalty_by_decoder_norm: bool
+    test_new_init: bool
 
     @classmethod
     def from_sae_runner_config(
@@ -161,6 +162,7 @@ class TrainingSAEConfig(SAEConfig):
             model_from_pretrained_kwargs=cfg.model_from_pretrained_kwargs or {},
             jumprelu_init_threshold=cfg.jumprelu_init_threshold,
             jumprelu_bandwidth=cfg.jumprelu_bandwidth,
+            test_new_init=cfg.test_new_init,
         )
 
     @classmethod
@@ -226,6 +228,7 @@ class TrainingSAEConfig(SAEConfig):
             "dataset_path": self.dataset_path,
             "dataset_trust_remote_code": self.dataset_trust_remote_code,
             "sae_lens_training_version": self.sae_lens_training_version,
+            "test_new_init": self.test_new_init,
         }
 
 
@@ -593,7 +596,7 @@ class TrainingSAE(SAE):
 
     def initialize_weights_complex(self):
         """ """
-
+        print("Run initialize_weights_complex \n")
         if self.cfg.decoder_orthogonal_init:
             self.W_dec.data = nn.init.orthogonal_(self.W_dec.data.T).T
 
@@ -661,7 +664,11 @@ class TrainingSAE(SAE):
     ## Training Utils
     @torch.no_grad()
     def set_decoder_norm_to_unit_norm(self):
-        self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
+        if self.cfg.test_new_init:
+            self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
+            self.W_dec.data *= torch.sqrt(torch.tensor(self.cfg.d_in / self.cfg.d_sae, device=self.device))
+        else:
+            self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
 
     @torch.no_grad()
     def initialize_decoder_norm_constant_norm(self, norm: float = 0.1):

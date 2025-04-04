@@ -136,6 +136,7 @@ class LanguageModelSAERunnerConfig:
         model_kwargs (dict[str, Any]): Additional keyword arguments for the model.
         model_from_pretrained_kwargs (dict[str, Any]): Additional keyword arguments for the model from pretrained.
         exclude_special_tokens (bool | list[int]): Whether to exclude special tokens from the activations.
+        test_new_init (bool): Whether to test the new initialization method.
     """
 
     # Data Generating Function (Model + Training Distibuion)
@@ -261,6 +262,7 @@ class LanguageModelSAERunnerConfig:
     sae_lens_version: str = field(default_factory=lambda: __version__)
     sae_lens_training_version: str = field(default_factory=lambda: __version__)
     exclude_special_tokens: bool | list[int] = False
+    test_new_init: bool = False
 
     def __post_init__(self):
         if self.resume:
@@ -324,10 +326,10 @@ class LanguageModelSAERunnerConfig:
                 "You can't normalize the decoder and use heuristic initialization."
             )
 
-        if self.normalize_sae_decoder and self.scale_sparsity_penalty_by_decoder_norm:
-            raise ValueError(
-                "Weighting loss by decoder norm makes no sense if you are normalizing the decoder weight norms to 1"
-            )
+        # if self.normalize_sae_decoder and self.scale_sparsity_penalty_by_decoder_norm:
+        #     raise ValueError(
+        #         "Weighting loss by decoder norm makes no sense if you are normalizing the decoder weight norms to 1"
+        #     )
 
         # if we use decoder fine tuning, we can't be applying b_dec to the input
         if (self.finetuning_method == "decoder") and (self.apply_b_dec_to_input):
@@ -452,6 +454,7 @@ class LanguageModelSAERunnerConfig:
             "activation_fn_kwargs": self.activation_fn_kwargs,
             "model_from_pretrained_kwargs": self.model_from_pretrained_kwargs,
             "seqpos_slice": self.seqpos_slice,
+            "test_new_init": self.test_new_init,
         }
 
     def get_training_sae_cfg_dict(self) -> dict[str, Any]:

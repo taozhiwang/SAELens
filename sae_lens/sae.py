@@ -3,6 +3,7 @@ https://github.com/ArthurConmy/sae/blob/main/sae/model.py
 """
 
 import json
+import math
 import os
 import warnings
 from contextlib import contextmanager
@@ -15,6 +16,7 @@ import torch
 from jaxtyping import Float
 from safetensors.torch import save_file
 from torch import nn
+import torch.nn.functional as F
 from transformer_lens.hook_points import HookedRootModule, HookPoint
 
 from sae_lens.config import DTYPE_MAP
@@ -67,6 +69,7 @@ class SAEConfig:
     neuronpedia_id: str | None = None
     model_from_pretrained_kwargs: dict[str, Any] = field(default_factory=dict)
     seqpos_slice: tuple[int | None, ...] = (None,)
+    test_new_init: bool = False
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, Any]) -> "SAEConfig":
@@ -117,6 +120,7 @@ class SAEConfig:
             "neuronpedia_id": self.neuronpedia_id,
             "model_from_pretrained_kwargs": self.model_from_pretrained_kwargs,
             "seqpos_slice": self.seqpos_slice,
+            "test_new_init": self.test_new_init,
         }
 
 
@@ -240,27 +244,67 @@ class SAE(HookedRootModule):
         self.setup()  # Required for `HookedRootModule`s
 
     def initialize_weights_basic(self):
+        if not self.cfg.test_new_init:
+            # no config changes encoder bias init for now.
+            self.b_enc = nn.Parameter(
+                torch.zeros(self.cfg.d_sae, dtype=self.dtype, device=self.device)
+            )
+
+            # Start with the default init strategy:
+            self.W_dec = nn.Parameter(
+                torch.nn.init.kaiming_uniform_(
+                    torch.empty(
+                        self.cfg.d_sae, self.cfg.d_in, dtype=self.dtype, device=self.device
+                    )
+                )
+            )
+
+            self.W_enc = nn.Parameter(
+                torch.nn.init.kaiming_uniform_(
+                    torch.empty(
+                        self.cfg.d_in, self.cfg.d_sae, dtype=self.dtype, device=self.device
+                    )
+                )
+            )
+
+            # methdods which change b_dec as a function of the dataset are implemented after init.
+            self.b_dec = nn.Parameter(
+                torch.zeros(self.cfg.d_in, dtype=self.dtype, device=self.device)
+            )
+
+            # scaling factor for fine-tuning (not to be used in initial training)
+            # TODO: Make this optional and not included with all SAEs by default (but maintain backwards compatibility)
+            if self.cfg.finetuning_scaling_factor:
+                self.finetuning_scaling_factor = nn.Parameter(
+                    torch.ones(self.cfg.d_sae, dtype=self.dtype, device=self.device)
+                )
+            
+            return
+
+        print("Run new initialize_weights_basic \n")
         # no config changes encoder bias init for now.
         self.b_enc = nn.Parameter(
             torch.zeros(self.cfg.d_sae, dtype=self.dtype, device=self.device)
         )
 
         # Start with the default init strategy:
-        self.W_dec = nn.Parameter(
-            torch.nn.init.kaiming_uniform_(
-                torch.empty(
-                    self.cfg.d_sae, self.cfg.d_in, dtype=self.dtype, device=self.device
-                )
+        self.W_dec = torch.nn.init.kaiming_uniform_(
+            torch.empty(
+                self.cfg.d_sae, self.cfg.d_in, dtype=self.dtype, device=self.device
             )
         )
+        with torch.no_grad():
+            self.W_dec = F.normalize(self.W_dec, p=2, dim=1)
+        self.W_dec = self.W_dec * math.sqrt(self.cfg.d_in) / math.sqrt(self.cfg.d_sae)
+        self.W_dec = nn.Parameter(self.W_dec.to(self.device))
 
-        self.W_enc = nn.Parameter(
-            torch.nn.init.kaiming_uniform_(
-                torch.empty(
-                    self.cfg.d_in, self.cfg.d_sae, dtype=self.dtype, device=self.device
-                )
+        self.W_enc = torch.nn.init.kaiming_uniform_(
+            torch.empty(
+                self.cfg.d_in, self.cfg.d_sae, dtype=self.dtype, device=self.device
             )
         )
+        self.W_enc = self.W_enc * math.sqrt(self.cfg.d_in) / math.sqrt(self.cfg.d_sae)
+        self.W_enc = nn.Parameter(self.W_enc.to(self.device))
 
         # methdods which change b_dec as a function of the dataset are implemented after init.
         self.b_dec = nn.Parameter(
