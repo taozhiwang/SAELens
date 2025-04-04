@@ -244,6 +244,7 @@ class SAE(HookedRootModule):
         self.setup()  # Required for `HookedRootModule`s
 
     def initialize_weights_basic(self):
+        # TODO: INIT
         if not self.cfg.test_new_init:
             # no config changes encoder bias init for now.
             self.b_enc = nn.Parameter(
@@ -295,7 +296,7 @@ class SAE(HookedRootModule):
         )
         with torch.no_grad():
             self.W_dec = F.normalize(self.W_dec, p=2, dim=1)
-        self.W_dec = self.W_dec * math.sqrt(self.cfg.d_in) / math.sqrt(self.cfg.d_sae)
+        self.W_dec = self.W_dec * math.sqrt(self.cfg.d_in)
         self.W_dec = nn.Parameter(self.W_dec.to(self.device))
 
         self.W_enc = torch.nn.init.kaiming_uniform_(
@@ -303,7 +304,6 @@ class SAE(HookedRootModule):
                 self.cfg.d_in, self.cfg.d_sae, dtype=self.dtype, device=self.device
             )
         )
-        self.W_enc = self.W_enc * math.sqrt(self.cfg.d_in) / math.sqrt(self.cfg.d_sae)
         self.W_enc = nn.Parameter(self.W_enc.to(self.device))
 
         # methdods which change b_dec as a function of the dataset are implemented after init.
@@ -494,9 +494,15 @@ class SAE(HookedRootModule):
     ) -> Float[torch.Tensor, "... d_in"]:
         """Decodes SAE feature activation tensor into a reconstructed input activation tensor."""
         # "... d_sae, d_sae d_in -> ... d_in",
-        sae_out = self.hook_sae_recons(
-            self.apply_finetuning_scaling_factor(feature_acts) @ self.W_dec + self.b_dec
-        )
+        # TODO: INIT
+        if self.cfg.test_new_init:
+            sae_out = self.hook_sae_recons(
+                self.apply_finetuning_scaling_factor(feature_acts) @ (self.W_dec / self.cfg.d_sae) + self.b_dec
+            )
+        else:
+            sae_out = self.hook_sae_recons(
+                self.apply_finetuning_scaling_factor(feature_acts) @ self.W_dec + self.b_dec
+            )
 
         # handle run time activation normalization if needed
         # will fail if you call this twice without calling encode in between.

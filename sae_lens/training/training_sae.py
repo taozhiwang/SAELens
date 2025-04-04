@@ -435,6 +435,9 @@ class TrainingSAE(SAE):
             )  # sum over the feature dimension
 
             l1_loss = (current_l1_coefficient * sparsity).mean()
+            # TODO: INIT
+            if self.cfg.test_new_init:
+                l1_loss = l1_loss / self.cfg.d_sae
             loss = mse_loss + l1_loss
             if (
                 self.cfg.use_ghost_grads
@@ -597,6 +600,7 @@ class TrainingSAE(SAE):
     def initialize_weights_complex(self):
         """ """
         print("Run initialize_weights_complex \n")
+        # TODO: INIT
         if self.cfg.decoder_orthogonal_init:
             self.W_dec.data = nn.init.orthogonal_(self.W_dec.data.T).T
 
@@ -664,9 +668,10 @@ class TrainingSAE(SAE):
     ## Training Utils
     @torch.no_grad()
     def set_decoder_norm_to_unit_norm(self):
+        # TODO: INIT
         if self.cfg.test_new_init:
             self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
-            self.W_dec.data *= torch.sqrt(torch.tensor(self.cfg.d_in / self.cfg.d_sae, device=self.device))
+            self.W_dec.data *= torch.sqrt(torch.tensor(self.cfg.d_in, device=self.device))
         else:
             self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
 
