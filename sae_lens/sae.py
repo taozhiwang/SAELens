@@ -295,7 +295,7 @@ class SAE(HookedRootModule):
         )
         with torch.no_grad():
             self.W_dec = F.normalize(self.W_dec, p=2, dim=1)
-        self.W_dec = self.W_dec / math.sqrt(self.cfg.d_sae)
+        self.W_dec = self.W_dec * math.sqrt(self.cfg.d_in) / math.sqrt(self.cfg.d_sae)
         self.W_dec = nn.Parameter(self.W_dec.to(self.device))
 
         self.W_enc = torch.nn.init.kaiming_uniform_(

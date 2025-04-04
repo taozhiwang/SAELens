@@ -266,8 +266,7 @@ class TrainingSAE(SAE):
 
         self.use_error_term = use_error_term
 
-        if not self.cfg.test_new_init:
-            self.initialize_weights_complex()
+        self.initialize_weights_complex()
 
         # The training SAE will assume that the activation store handles
         # reshaping.
@@ -665,7 +664,11 @@ class TrainingSAE(SAE):
     ## Training Utils
     @torch.no_grad()
     def set_decoder_norm_to_unit_norm(self):
-        self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
+        if self.cfg.test_new_init:
+            self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
+            self.W_dec.data *= torch.sqrt(torch.tensor(self.cfg.d_in / self.cfg.d_sae, device=self.device))
+        else:
+            self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
 
     @torch.no_grad()
     def initialize_decoder_norm_constant_norm(self, norm: float = 0.1):

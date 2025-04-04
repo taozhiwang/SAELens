@@ -326,10 +326,10 @@ class LanguageModelSAERunnerConfig:
                 "You can't normalize the decoder and use heuristic initialization."
             )
 
-        if self.normalize_sae_decoder and self.scale_sparsity_penalty_by_decoder_norm:
-            raise ValueError(
-                "Weighting loss by decoder norm makes no sense if you are normalizing the decoder weight norms to 1"
-            )
+        # if self.normalize_sae_decoder and self.scale_sparsity_penalty_by_decoder_norm:
+        #     raise ValueError(
+        #         "Weighting loss by decoder norm makes no sense if you are normalizing the decoder weight norms to 1"
+        #     )
 
         # if we use decoder fine tuning, we can't be applying b_dec to the input
         if (self.finetuning_method == "decoder") and (self.apply_b_dec_to_input):
