@@ -367,6 +367,8 @@ class TrainingSAE(SAE):
         x: Float[torch.Tensor, "... d_in"],
     ) -> Float[torch.Tensor, "... d_in"]:
         feature_acts, _ = self.encode_with_hidden_pre_fn(x)
+        if self.cfg.test_new_init:
+            feature_acts = feature_acts / self.cfg.d_sae
         return self.decode(feature_acts)
 
     def training_forward_pass(
@@ -377,7 +379,10 @@ class TrainingSAE(SAE):
     ) -> TrainStepOutput:
         # do a forward pass to get SAE out, but we also need the
         # hidden pre.
+        # TODO: INIT
         feature_acts, hidden_pre = self.encode_with_hidden_pre_fn(sae_in)
+        if self.cfg.test_new_init:
+            feature_acts = feature_acts / self.cfg.d_sae
         sae_out = self.decode(feature_acts)
 
         # MSE LOSS
@@ -597,6 +602,7 @@ class TrainingSAE(SAE):
     def initialize_weights_complex(self):
         """ """
         print("Run initialize_weights_complex \n")
+        # TODO: INIT
         if self.cfg.decoder_orthogonal_init:
             self.W_dec.data = nn.init.orthogonal_(self.W_dec.data.T).T
 
@@ -664,9 +670,10 @@ class TrainingSAE(SAE):
     ## Training Utils
     @torch.no_grad()
     def set_decoder_norm_to_unit_norm(self):
+        # TODO: INIT
         if self.cfg.test_new_init:
             self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
-            self.W_dec.data *= torch.sqrt(torch.tensor(self.cfg.d_in / self.cfg.d_sae, device=self.device))
+            self.W_dec.data *= torch.sqrt(torch.tensor(self.cfg.d_in, device=self.device))
         else:
             self.W_dec.data /= torch.norm(self.W_dec.data, dim=1, keepdim=True)
 

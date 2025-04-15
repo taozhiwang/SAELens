@@ -446,6 +446,8 @@ def get_sparsity_and_variance_metrics(
 
         # send the (maybe normalised) activations into the SAE
         sae_feature_activations = sae.encode(original_act.to(sae.device))
+        if sae.cfg.test_new_init:
+            sae_feature_activations = sae_feature_activations / sae.cfg.d_sae
         sae_out = sae.decode(sae_feature_activations).to(original_act.device)
         del cache
 
