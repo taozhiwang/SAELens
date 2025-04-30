@@ -400,6 +400,8 @@ class TrainingSAE(SAE):
             )
             pi_gate = sae_in_centered @ self.W_enc + self.b_gate
             pi_gate_act = torch.relu(pi_gate)
+            if self.cfg.test_new_init:
+                pi_gate_act = pi_gate_act / self.cfg.d_sae
 
             # SFN sparsity loss - summed over the feature dimension and averaged over the batch
             l1_loss = (
