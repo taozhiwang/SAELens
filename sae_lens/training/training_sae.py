@@ -3,6 +3,7 @@ https://github.com/ArthurConmy/sae/blob/main/sae/model.py
 """
 
 import json
+import math
 import os
 from dataclasses import dataclass, fields
 from typing import Any
@@ -367,8 +368,8 @@ class TrainingSAE(SAE):
         x: Float[torch.Tensor, "... d_in"],
     ) -> Float[torch.Tensor, "... d_in"]:
         feature_acts, _ = self.encode_with_hidden_pre_fn(x)
-        if self.cfg.test_new_init:
-            feature_acts = feature_acts / self.cfg.d_sae
+        # if self.cfg.test_new_init:
+        #     feature_acts = feature_acts / self.cfg.d_sae
         return self.decode(feature_acts)
 
     def training_forward_pass(
@@ -381,8 +382,8 @@ class TrainingSAE(SAE):
         # hidden pre.
         # TODO: INIT
         feature_acts, hidden_pre = self.encode_with_hidden_pre_fn(sae_in)
-        if self.cfg.test_new_init:
-            feature_acts = feature_acts / self.cfg.d_sae
+        # if self.cfg.test_new_init:
+        #     feature_acts = feature_acts / self.cfg.d_sae
         sae_out = self.decode(feature_acts)
 
         # MSE LOSS
@@ -400,8 +401,8 @@ class TrainingSAE(SAE):
             )
             pi_gate = sae_in_centered @ self.W_enc + self.b_gate
             pi_gate_act = torch.relu(pi_gate)
-            if self.cfg.test_new_init:
-                pi_gate_act = pi_gate_act / self.cfg.d_sae
+            # if self.cfg.test_new_init:
+            #     pi_gate_act = pi_gate_act / self.cfg.d_sae
 
             # SFN sparsity loss - summed over the feature dimension and averaged over the batch
             l1_loss = (
@@ -419,8 +420,13 @@ class TrainingSAE(SAE):
             losses["l1_loss"] = l1_loss
         elif self.cfg.architecture == "jumprelu":
             threshold = torch.exp(self.log_threshold)
-            l0 = torch.sum(Step.apply(hidden_pre, threshold, self.bandwidth), dim=-1)  # type: ignore
-            l0_loss = (current_l1_coefficient * l0).mean()
+            # l0 = torch.sum(Step.apply(hidden_pre, threshold, self.bandwidth), dim=-1)  # type: ignore
+            # l0_loss = (current_l1_coefficient * l0).mean()
+            if self.cfg.scale_sparsity_penalty_by_decoder_norm:
+                tanh = torch.sum(torch.tanh(4 * feature_acts * self.W_dec.norm(dim=1)) + 1, dim=-1) / 2
+            else:
+                tanh = torch.sum(torch.tanh(4 * feature_acts) + 1, dim=-1) / 2
+            l0_loss = (current_l1_coefficient * tanh).mean()
             loss = mse_loss + l0_loss
             losses["l0_loss"] = l0_loss
         elif self.cfg.architecture == "topk":
@@ -618,18 +624,22 @@ class TrainingSAE(SAE):
 
         # Then we initialize the encoder weights (either as the transpose of decoder or not)
         if self.cfg.init_encoder_as_decoder_transpose:
-            self.W_enc.data = self.W_dec.data.T.clone().contiguous()
-        else:
-            self.W_enc = nn.Parameter(
-                torch.nn.init.kaiming_uniform_(
-                    torch.empty(
-                        self.cfg.d_in,
-                        self.cfg.d_sae,
-                        dtype=self.dtype,
-                        device=self.device,
-                    )
-                )
-            )
+            if self.cfg.test_new_init:
+                self.W_enc.data = self.W_dec.data.T.clone().contiguous()
+            else:
+                self.W_enc.data = self.W_dec.data.T.clone().contiguous() * math.sqrt(self.cfg.d_in / self.cfg.d_sae)
+        # else:
+        #     self.W_enc = nn.Parameter(
+        #         torch.nn.init.kaiming_uniform_(
+        #             torch.empty(
+        #                 self.cfg.d_in,
+        #                 self.cfg.d_sae,
+        #                 dtype=self.dtype,
+        #                 device=self.device,
+        #             )
+        #         )
+        #     )
+
 
         if self.cfg.normalize_sae_decoder:
             with torch.no_grad():

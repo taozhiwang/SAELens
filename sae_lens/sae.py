@@ -252,21 +252,22 @@ class SAE(HookedRootModule):
             )
 
             # Start with the default init strategy:
-            self.W_dec = nn.Parameter(
-                torch.nn.init.kaiming_uniform_(
+            self.W_dec = torch.nn.init.kaiming_uniform_(
                     torch.empty(
                         self.cfg.d_sae, self.cfg.d_in, dtype=self.dtype, device=self.device
                     )
                 )
-            )
 
-            self.W_enc = nn.Parameter(
-                torch.nn.init.kaiming_uniform_(
+            self.W_dec = self.W_dec * math.sqrt(self.cfg.d_sae / self.cfg.d_in) 
+            self.W_dec = nn.Parameter(self.W_dec.to(self.device))
+            self.W_enc = torch.nn.init.kaiming_uniform_(
                     torch.empty(
                         self.cfg.d_in, self.cfg.d_sae, dtype=self.dtype, device=self.device
                     )
                 )
-            )
+            
+            self.W_enc = self.W_enc / math.sqrt(self.cfg.d_sae / self.cfg.d_in)
+            self.W_enc = nn.Parameter(self.W_enc.to(self.device))
 
             # methdods which change b_dec as a function of the dataset are implemented after init.
             self.b_dec = nn.Parameter(
@@ -294,8 +295,8 @@ class SAE(HookedRootModule):
                 self.cfg.d_sae, self.cfg.d_in, dtype=self.dtype, device=self.device
             )
         )
-        with torch.no_grad():
-            self.W_dec = F.normalize(self.W_dec, p=2, dim=1)
+        # with torch.no_grad():
+        #     self.W_dec = F.normalize(self.W_dec, p=2, dim=1)
         # self.W_dec = self.W_dec * math.sqrt(self.cfg.d_in)
         self.W_dec = nn.Parameter(self.W_dec.to(self.device))
 
@@ -304,6 +305,7 @@ class SAE(HookedRootModule):
                 self.cfg.d_in, self.cfg.d_sae, dtype=self.dtype, device=self.device
             )
         )
+        self.W_enc = self.W_enc / math.sqrt(self.cfg.d_sae / self.cfg.d_in)
         self.W_enc = nn.Parameter(self.W_enc.to(self.device))
 
         # methdods which change b_dec as a function of the dataset are implemented after init.
@@ -320,14 +322,15 @@ class SAE(HookedRootModule):
 
     def initialize_weights_gated(self):
         # Initialize the weights and biases for the gated encoder
-        self.W_enc = nn.Parameter(
-            torch.nn.init.kaiming_uniform_(
-                torch.empty(
-                    self.cfg.d_in, self.cfg.d_sae, dtype=self.dtype, device=self.device
-                )
+        self.W_enc = torch.nn.init.kaiming_uniform_(
+            torch.empty(
+                self.cfg.d_in, self.cfg.d_sae, dtype=self.dtype, device=self.device
             )
         )
-
+        
+        self.W_enc = self.W_enc / math.sqrt(self.cfg.d_sae / self.cfg.d_in)
+        self.W_enc = nn.Parameter(self.W_enc.to(self.device))
+        
         self.b_gate = nn.Parameter(
             torch.zeros(self.cfg.d_sae, dtype=self.dtype, device=self.device)
         )
@@ -340,13 +343,15 @@ class SAE(HookedRootModule):
             torch.zeros(self.cfg.d_sae, dtype=self.dtype, device=self.device)
         )
 
-        self.W_dec = nn.Parameter(
-            torch.nn.init.kaiming_uniform_(
-                torch.empty(
-                    self.cfg.d_sae, self.cfg.d_in, dtype=self.dtype, device=self.device
-                )
+        self.W_dec = torch.nn.init.kaiming_uniform_(
+            torch.empty(
+                self.cfg.d_sae, self.cfg.d_in, dtype=self.dtype, device=self.device
             )
         )
+        
+        if not self.cfg.test_new_init:
+            self.W_dec = self.W_dec * math.sqrt(self.cfg.d_sae / self.cfg.d_in)
+        self.W_dec = nn.Parameter(self.W_dec.to(self.device))
 
         self.b_dec = nn.Parameter(
             torch.zeros(self.cfg.d_in, dtype=self.dtype, device=self.device)
